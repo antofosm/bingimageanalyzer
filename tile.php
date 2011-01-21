@@ -37,8 +37,7 @@
 // Your Tilecache base directory.
 // You will need to create two directories here: tiles and tiles_simple.
 // These directories need to be writable by the web server.
-//$TC_BASE = '/home/mvexel/www/';
-$TC_BASE = '/home/mvexel/public_html/';
+$TC_BASE = '/var/www/bingimageanalyzer-cache/';
 //$TC_BASE = 'd:\\ms4w\\apache\\htdocs\\';
 
 // Optionally, define a path to a local PHP error log file here if for some reason you don't want to use PHP's main error log file. If empty, errors will be logged using the global PHP configuration.
@@ -78,10 +77,13 @@ if (isset($_GET['debug']))
 }
 
 $tilecache_basedir = $nodepth&&$cur_zoom>$ZOOM_THRESHOLD?$TC_BASE.'tiles_simple':$TC_BASE.'tiles';
+$tilecache_basedir_hires = $TC_BASE.'hires';
 
 $tile_fn = preg_replace('/(\d)/','/\1',$t);
 $tile_dir = substr(($tilecache_basedir . $tile_fn),0,-2);
 $tile_fn = $tilecache_basedir . $tile_fn . '.png';
+$hires_fn = preg_replace('/(\d)/','/\1',$t);
+$hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
 
 //$latlon = QuadKeyToLatLong($t);
 
@@ -95,6 +97,14 @@ if(!file_exists($tile_fn)) {
 if(!($d)) header("Content-type: image/png");
 else print($url);
 
+//get hires tiles
+$imt = get_hires($t);
+if($imt == false) {
+	$imt = imagecreatefrompng($hires_fn);
+    imagealphablending($imt, true);
+    imagesavealpha($imt, true);
+}
+
 if($CACHED) {
 	$im = imagecreatefrompng($tile_fn);
 	imagealphablending($im, true);
@@ -102,25 +112,7 @@ if($CACHED) {
 } else {
 	error_log("tile " . $t . " not CACHED, creating...");
 	$r = get_tile_headers($t); 
-	if(!$nodepth) {
-		$tt=$t;
-		if($cur_zoom > $ZOOM_THRESHOLD) {
-			for($i=0;$i<4;$i++) {
-				$max_zoom=$cur_zoom;
-				$ttt=$tt.$i;
-				if(check_tile_exists($ttt))
-				{	
-					for($max_zoom=$cur_zoom+1;$max_zoom<=$BING_ZOOM_LEVELS;$max_zoom++) {
-						$n=$max_zoom%2?0:3;
-						$ttt.=$n;
-						if(!check_tile_exists($ttt)) 
-							break;
-					}
-				}
-				$zz[$i]=max(0,$max_zoom-$cur_zoom);
-			}
-		}
-	}
+
 	$headers = array();
 
 	$r = explode("\n", $r); 
@@ -148,50 +140,167 @@ if($CACHED) {
 		$text_color = imagecolorallocate($im, $w-1, $h-1, 0);
 		$text_color_shadow = imagecolorallocate($im, 64,64,0);
 		
-		if($cur_zoom > 11 && !$nodepth) {
-
-			$grid_colors = array();
-			$levels=8;
-			for($i=0;$i<$levels;$i++) {
-				array_push(
-				$grid_colors, 
-					imagecolorallocatealpha($im, 
-					floor(256-(256/($levels-$i))), 
-					floor(256-(256/($i+1))),
-					0,
-					63)
-				);
-			}
-			
-			imagefilledrectangle($im, 0, 0, $w/2-1, $h/2-1,  $grid_colors[min($levels-1,$zz[0])]);
-			imagestring($im, 2, floor($w/4) - 20 + 1, floor($h/4) - 5 + 1, ($zz[0]>0?$zz[0]:"no") . " more", $text_color_shadow);
-			imagestring($im, 2, floor($w/4) - 20, floor($h/4) - 5, ($zz[0]>0?$zz[0]:"no") . " more", $text_color);
-			
-			imagefilledrectangle($im, $w/2, 0, $w-1, $h/2-1, $grid_colors[min($levels-1,$zz[1])]);
-			imagestring($im, 2, floor(3*$w/4) - 20 + 1, floor($h/4) - 5 + 1, ($zz[1]>0?$zz[1]:"no") . " more", $text_color_shadow);
-			imagestring($im, 2, floor(3*$w/4) - 20, floor($h/4) - 5, ($zz[1]>0?$zz[1]:"no") . " more", $text_color);
-			
-			imagefilledrectangle($im, 0, $h/2, $w/2-1, $h-1,  $grid_colors[min($levels-1,$zz[2])]);
-			imagestring($im, 2, floor($w/4) - 20 + 1, floor(3*$h/4) - 5 + 1, ($zz[2]>0?$zz[2]:"no") . " more", $text_color_shadow);
-			imagestring($im, 2, floor($w/4) - 20, floor(3*$h/4) - 5, ($zz[2]>0?$zz[2]:"no") . " more", $text_color);
-			
-			imagefilledrectangle($im, $w/2, $h/2, $w-1, $h-1,  $grid_colors[min($levels-1,$zz[3])]);
-			imagestring($im, 2, floor(3*$w/4) - 20 + 1, floor(3*$h/4) - 5 + 1, ($zz[3]>0?$zz[3]:"no") . " more", $text_color_shadow);
-			imagestring($im, 2, floor(3*$w/4) - 20, floor(3*$h/4) - 5, ($zz[3]>0?$zz[3]:"no") . " more", $text_color);
-		};
-		
-
 		imagestring($im, 2, 6, 6, $date, $text_color_shadow);
 //		imagestring($im, 2, 6, 18, $latlon['lon'] . ',' . $latlon['lat'], $text_color_shadow);
 		imagestring($im, 2, 5, 5, $date, $text_color);
 		imageline($im, 0, 0, 0, $h-1, $text_color);
 		imageline($im, 0, 0, $w-1, 0, $text_color);
 	}
+	imagepng($im,$tile_fn);
 }
 
-imagepng($im);
-if(!$CACHED) imagepng($im,$tile_fn);
-imagedestroy($im);
+if($imt != false) {
+	imagealphablending($imt, true);
+	imagecopy($imt, $im, 0, 0, 0, 0, 256, 256);
+	imagepng($imt);
+	imagedestroy($imt);
+}
+else {
+	imagepng($im);
+	imagedestroy($im);
+}
+
+/*
+ * get_hires()
+ * recursively creates hires analysis tiles
+ * 
+ * params:  $t      quadkey of the tile to be drawn
+ * returns: image resource on success, false if file doesn't need updating
+ */
+function get_hires($t) {
+    global $cur_zoom, $tilecache_basedir_hires;
+    $hires_fn = preg_replace('/(\d)/', '/\1', $t);
+	$hires_dir = substr(($tilecache_basedir_hires . $hires_fn),0,-2);
+    $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
+    
+    $dir = substr($hires_fn, 0, -4);    //this is the directory that contains
+                                        //the tiles of the next zoomlevel
+    $z = strlen($t);
+    
+    //prepare image file
+    $im = imagecreatetruecolor(256, 256);
+    imagealphablending($im, false);
+    $black = imagecolorallocatealpha($im, 0, 0, 0, 127);
+	$red = imagecolorallocatealpha($im, 255, 0, 0, 0);
+	$green = imagecolorallocatealpha($im, 0, 255, 0, 0);
+    imagefill($im, 0, 0, $black);
+    imagesavealpha($im, true);
+    
+	$lastvisited_fn = $hires_fn . ".log";
+	
+	//check if file is still up to date
+	if(file_exists($hires_fn)) {
+		$uptodate = false;
+		if (file_exists($lastvisited_fn)) {
+			$lastvisited = file_get_contents($lastvisited_fn);
+			if(filemtime($hires_fn) > (int)$lastvisited) {
+				$uptodate = true;
+			}
+		}
+		else {
+		    $uptodate = true;
+		}
+    }
+    //return false if the tile is up to date (only in first iteration)
+    if ($z == $cur_zoom && $uptodate) {
+	    //error_log("not updating ".$t);
+	    return false;
+	}
+    
+    //if the file exists, prepare for updating it
+    if(file_exists($hires_fn)) {
+       	$src = imagecreatefrompng($hires_fn);
+        imagecopyresampled($im, $src, 0, 0, 0, 0, 256, 256, 256, 256);
+    }
+    elseif(!file_exists($hires_dir)) {
+    	mkdir($hires_dir,0777,true);
+    }
+    
+    //otherwise, if we are in hires zoom levels, check availability of tiles
+    if($cur_zoom >= 14) {
+        if(check_tile_exists($t)) {
+            //error_log("hires imagery on tile " . $t);
+            imagefill($im, 0, 0, $green);
+        }
+        else {
+            //error_log("no hires imagery on tile " . $t);
+            imagefill($im, 0, 0, $red);
+        }
+        if(!file_exists($dir)) {
+			imagepng($im, $hires_fn);
+			mark_as_visited($t);
+		}
+    }
+    //if there are tiles in higher zoom levels, process them
+    if(file_exists($dir)) {
+    	//...but only two levels deeper
+    	if($z - $cur_zoom < 2) {
+			//error_log("updating ".$t);
+			
+			//recurse on all four subtiles
+            for($j = 0; $j < 4; $j++) {
+                $imsrc = get_hires($t.$j);
+                
+                //abort if get_tile() returns false
+                if($imsrc != false) {
+                    //merge higher zoom level tiles into the current one
+                    $dst_x = $j==0 || $j==2 ? 0 : 128;
+                    $dst_y = $j==0 || $j==1 ? 0 : 128;
+                    
+                    for($x = 0; $x <= 255; $x = $x + 2) {
+                        for($y = 0; $y <= 255; $y = $y + 2) {
+                            $new_x = $dst_x + $x/2;
+                            $new_y = $dst_y + $y/2;
+                            $color = imagecolorat($im, $new_x, $new_y);
+                            $colorsrc = imagecolorat($imsrc, $x, $y);
+                            
+                            if($colorsrc != $color && $colorsrc != $black) {
+                                imagesetpixel($im, $new_x, $new_y, $colorsrc);
+                            }
+                            else {
+                                imagesetpixel($im, $new_x, $new_y, $color);
+                            }
+                        }
+                    }
+                }
+            }
+            //write contents to file if back in first iteration
+			if($z == $cur_zoom) {
+				imagepng($im, $hires_fn);
+				mark_as_visited($t);
+			}
+        }
+    }
+    return $im;
+}
+
+/*
+ * mark_as_visited()
+ * write last modification date of tiles and subtiles to file
+ * 
+ * params:  $t      quadkey of the tile concerned
+ */
+function mark_as_visited($t) {
+    global $tilecache_basedir_hires;
+    $hires_fn = preg_replace('/(\d)/', '/\1', $t);
+    $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
+    $mtime = filemtime($hires_fn);
+    
+    //step up to parent folder two times and write log files
+    for($i = 0; $i < 2; $i++) {
+		$t = substr($t, 0, -1);
+		if(strlen($t) > 1) {
+			$parent_hires_fn = preg_replace('/(\d)/', '/\1', $t);
+			$parent_hires_fn = $tilecache_basedir_hires . $parent_hires_fn . '.png';
+			$log_fn = $parent_hires_fn . ".log";
+			
+			$fh = fopen($log_fn, 'w') or die("can't open file for writing");
+			fwrite($fh, $mtime);
+			fclose($fh);
+		}
+		else break;
+    }
+}
 
 function get_tile_headers($quadkey)
 {
