@@ -13,7 +13,7 @@
 		map.entities.push(tilelayer);
 
 	===========================================================================
-	Copyright (c) 2010 Very Furry / Martijn van Exel
+	Copyright (c) 2010 Very Furry / Martijn van Exel / ant
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
@@ -37,8 +37,7 @@
 // Your Tilecache base directory.
 // You will need to create two directories here: tiles and tiles_simple.
 // These directories need to be writable by the web server.
-$TC_BASE = '/var/www/bingimageanalyzer-cache/';
-//$TC_BASE = 'd:\\ms4w\\apache\\htdocs\\';
+$TC_BASE = '/home/ant/public_html/bingimageanalyzer-cache/';
 
 // Optionally, define a path to a local PHP error log file here if for some reason you don't want to use PHP's main error log file. If empty, errors will be logged using the global PHP configuration.
 // You will need to create this file and make it writable for the web server. 
@@ -76,23 +75,23 @@ if (isset($_GET['debug']))
 	debug();
 }
 
-$tilecache_basedir = $nodepth&&$cur_zoom>$ZOOM_THRESHOLD?$TC_BASE.'tiles_simple':$TC_BASE.'tiles';
+//$tilecache_basedir = $nodepth&&$cur_zoom>$ZOOM_THRESHOLD?$TC_BASE.'tiles_simple':$TC_BASE.'tiles';
 $tilecache_basedir_hires = $TC_BASE.'hires';
 
-$tile_fn = preg_replace('/(\d)/','/\1',$t);
-$tile_dir = substr(($tilecache_basedir . $tile_fn),0,-2);
-$tile_fn = $tilecache_basedir . $tile_fn . '.png';
+//$tile_fn = preg_replace('/(\d)/','/\1',$t);
+//$tile_dir = substr(($tilecache_basedir . $tile_fn),0,-2);
+//$tile_fn = $tilecache_basedir . $tile_fn . '.png';
 $hires_fn = preg_replace('/(\d)/','/\1',$t);
 $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
 
 //$latlon = QuadKeyToLatLong($t);
 
-if(!file_exists($tile_fn)) {
+/*if(!file_exists($tile_fn)) {
 	if (!is_dir($tile_dir)) mkdir($tile_dir,0777,true);
 } elseif(!$force) {
 	$CACHED=TRUE;
 	error_log("tile " . $t . " CACHED, fetching...");
-}
+}*/
 	
 if(!($d)) header("Content-type: image/png");
 else print($url);
@@ -105,7 +104,7 @@ if($imt == false) {
     imagesavealpha($imt, true);
 }
 
-if($CACHED) {
+/*if($CACHED) {
 	$im = imagecreatefrompng($tile_fn);
 	imagealphablending($im, true);
 	imagesavealpha($im, true); 
@@ -147,11 +146,11 @@ if($CACHED) {
 		imageline($im, 0, 0, $w-1, 0, $text_color);
 	}
 	imagepng($im,$tile_fn);
-}
+}*/
 
 if($imt != false) {
-	imagealphablending($imt, true);
-	imagecopy($imt, $im, 0, 0, 0, 0, 256, 256);
+	//imagealphablending($imt, true);
+	//imagecopy($imt, $im, 0, 0, 0, 0, 256, 256);
 	imagepng($imt);
 	imagedestroy($imt);
 }
