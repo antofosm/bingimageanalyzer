@@ -9,13 +9,10 @@
 	<script type="text/javascript" src="http://ecn.dev.virtualearth.net/mapcontrol/mapcontrol.ashx?v=7.0"></script> 
 	<script type="text/javascript">
 	// This is the URL at which the application (and tile.php) is accessible through the internet. 
-	//var baseURL = 'http://lima.schaaltreinen.nl/mvexel/bingimageanalyzer/';
 	var baseURL = 'http://ant.dev.openstreetmap.org/bingimageanalyzer/';
 	//var baseURL = 'http://localhost/bingimageanalyzer/';
 	// This is your Bing Maps key. Get your own: http://msdn.microsoft.com/en-us/library/ff428642.aspx
-	// FOR LIMA.SCHAALTREINEN.NL use only:
-	// var bingCredentials = "AncYMYJDvHMmYPXT7mJcpCeYxGEVcJFj_StK8PO3ih8WgjvfHzuvnyjc_iRFXqN2";
-	// FOR ANT.DEV.OPENSTREETMAP.ORG use only:
+	// For ant.dev.openstreetmap.org use only:
 	var bingCredentials = "AuMLnyuPu8t30kojQXLFxfpDJUvrg1d2vBsVZ-p07AZytezgQDQZ-ZMtuszAI-1i";
 
 	// No need to change anything beyond here
@@ -23,8 +20,7 @@
 	var map;
 	var tilelayer;
 	// http://stackoverflow.com/questions/901115/get-querystring-values-with-jquery
-	function getParameterByName( name ) 
-	{
+	function getParameterByName(name) {
 		name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
 		var regexS = "[\\?&]"+name+"=([^&#]*)";
 		var regex = new RegExp( regexS );
@@ -34,18 +30,17 @@
 		else
 			return decodeURIComponent(results[1].replace(/\+/g, " "));
 	}
-    function GetMap()
-    {   
-		var lat=parseFloat(getParameterByName("lat"));
-		if(isNaN(lat)) lat=52.35;
-		var lon=parseFloat(getParameterByName("lon"));
-		if(isNaN(lon)) lon=4.9;
-		var z=parseInt(getParameterByName("z"));
-		if(isNaN(z)) z=parseInt(getParameterByName("zoom")); 
-		if(isNaN(z)) z=8;
-		var nodepth=getParameterByName("nodepth");
-		var tileSourceUri = baseURL + 'tile.php?t={quadkey}&nodepth=' + nodepth;
-		//alert(tileSourceUri);
+    function GetMap() {   
+		var lat = parseFloat(getParameterByName("lat"));
+		if(isNaN(lat)) lat = 52.35;
+		var lon = parseFloat(getParameterByName("lon"));
+		if(isNaN(lon)) lon = 4.9;
+		var z = parseInt(getParameterByName("z"));
+		if(isNaN(z)) z = parseInt(getParameterByName("zoom")); 
+		if(isNaN(z)) z = 8;
+		var force = getParameterByName("force");
+		var tileSourceUri = baseURL + 'tile.php?t={quadkey}&force=' + force;
+		
 		map = new Microsoft.Maps.Map(document.getElementById("mapDiv"), 
 			{
 				credentials: bingCredentials,
@@ -57,96 +52,100 @@
 			}
 		);
     	var tileSource = new Microsoft.Maps.TileSource({uriConstructor: tileSourceUri});
-    	tilelayer= new Microsoft.Maps.TileLayer({ mercator: tileSource, opacity: 0.5 });
+    	tilelayer = new Microsoft.Maps.TileLayer({ mercator: tileSource, opacity: 0.5 });
     	
 		map.entities.push(tilelayer);
 		map.isRotationEnabled(false);
-		Microsoft.Maps.Events.addHandler(map, 'viewchangeend', function(e){
-			c=map.getCenter();z=map.getZoom();
-      		potlatchdiv=document.getElementById('edit');
-      		if(potlatchdiv==null) return false;
+		Microsoft.Maps.Events.addHandler(map, 'viewchangeend', function(e) {
+			c = map.getCenter();
+			z = map.getZoom();
+      		potlatchdiv = document.getElementById('edit');
+      		if(potlatchdiv == null) return false;
       		if(z < 15) {
-      			potlatchdiv.style.color='#aaa';
-      			potlatchdiv.innerHTML='edit in potlatch2';
-			} else {	
-				potlatchdiv.style.color='#000';
-				potlatchdiv.innerHTML='<a href="http://open.mapquestapi.com/dataedit/index_flash.html?lat='+c.latitude+'&lon='+c.longitude+'&zoom='+z+'">edit in potlatch2</a>';
+      			potlatchdiv.style.color = '#aaa';
+      			potlatchdiv.innerHTML = 'edit in potlatch2';
 			}
-			permalinkspan=document.getElementById('permalink');
-			if(permalinkspan==null) return false;
-			permalinkspan.innerHTML='<a href="'+baseURL+'?lat='+c.latitude+'&lon='+c.longitude+'&zoom='+z+'">permalink</a>';
+			else {	
+				potlatchdiv.style.color = '#000';
+				potlatchdiv.innerHTML = '<a href="http://www.openstreetmap.org/edit?lat='+c.latitude+'&lon='+c.longitude+'&zoom='+z+'&editor=potlatch2">edit in potlatch2</a>';
+			}
+			permalinkspan = document.getElementById('permalink');
+			if(permalinkspan == null) return false;
+			permalinkspan.innerHTML = '<a href="'+baseURL+'?lat='+c.latitude+'&lon='+c.longitude+'&zoom='+z+'">permalink</a>';
 			curzoomspan=document.getElementById('curzoom');
-			if(curzoomspan!=null) curzoomspan.innerHTML=map.getZoom();
+			if(curzoomspan!=null) curzoomspan.innerHTML = map.getZoom();
     	});
     }      
 	  
-	function findName(credentials)
-	{
+	function findName(credentials) {
 		map.getCredentials(MakeGeocodeRequest);
 		document.getElementById('placeInput').select();
 	}
 
-	function MakeGeocodeRequest(credentials)
-    {
+	function MakeGeocodeRequest(credentials) {
         var geocodeRequest = "http://dev.virtualearth.net/REST/v1/Locations/" + document.getElementById('placeInput').value + "?output=json&jsonp=GeocodeCallback&key=" + credentials;
         CallRestService(geocodeRequest);
     }
 
-	function CallRestService(request) 
-    {
+	function CallRestService(request) {
         var script = document.createElement("script");
         script.setAttribute("type", "text/javascript");
         script.setAttribute("src", request);
         document.body.appendChild(script);
     }
 		
-	function GeocodeCallback(result) 
-    {
-		foundName=result.resourceSets[0].resources[0].name;
-		var ppo={text:foundName,textOffset:new Microsoft.Maps.Point(0,20)};
-        if (result && result.resourceSets && result.resourceSets.length > 0 && result.resourceSets[0].resources && result.resourceSets[0].resources.length > 0) 
-        {
+	function GeocodeCallback(result) {
+		foundName = result.resourceSets[0].resources[0].name;
+		var ppo = {text: foundName, textOffset: new Microsoft.Maps.Point(0, 20)};
+        if (result && result.resourceSets && result.resourceSets.length > 0 && result.resourceSets[0].resources && result.resourceSets[0].resources.length > 0) {
             var bbox = result.resourceSets[0].resources[0].bbox;
             var viewBoundaries = Microsoft.Maps.LocationRect.fromLocations(new Microsoft.Maps.Location(bbox[0], bbox[1]), new Microsoft.Maps.Location(bbox[2], bbox[3]));
-            map.setView({ bounds: viewBoundaries});
+            map.setView({bounds: viewBoundaries});
         }
     }
 	</script> 
 	<script>
-		$(document).ready(function() 
-		{
+		$(document).ready(function() {
 			$("#slider").slider();
-			$("#slider").slider( "option", "max", 1 );
-			$("#slider").slider( "option", "min", 0 );
-			$("#slider").slider( "option", "step", 0.1 );
-			$( "#slider" ).slider( "option", "value", 0.5);
+			$("#slider").slider("option", "max", 1);
+			$("#slider").slider("option", "min", 0);
+			$("#slider").slider("option", "step", 0.1);
+			$("#slider").slider("option", "value", 0.5);
 			$("#slider").slider({
        			change: function(event, ui) {
-					var newopacity = $( "#slider" ).slider( "option", "value" );
-					tilelayer.setOptions({ opacity: newopacity });
+					var newopacity = $("#slider").slider("option", "value");
+					tilelayer.setOptions({opacity: newopacity});
 				}
 		    });
   		});
-  </script>
+	</script>
 	<style type="text/css">
-		#slider { margin: 5px 10px 5px 10px; }
-		#placeInput {width: 90%}
+		#slider {
+			margin: 5px 10px 5px 10px;
+		}
+		#placeInput {
+			width: 90%
+		}
 		#rest {
-			position:absolute;
-			top:0px;
-			right:0px;
-			width:130px;
-			padding:4px;
-			background-color:white;
-			opacity:0.8;
-			font:12px arial;
-			z-index:100;
-			text-align:right
+			position: absolute;
+			top: 0px;
+			right: 0px;
+			width: 130px;
+			padding: 4px;
+			background-color: white;
+			opacity: 0.8;
+			font: 12px arial;
+			z-index: 100;
+			text-align: right
 		}
 		#edit {
-			font:bold 12px arial;
+			font: bold 12px arial;
 		}
-		.box {margin-top:2px;padding:2px;border:1px solid #aaa}
+		.box {
+			margin-top: 2px;
+			padding: 2px;
+			border: 1px solid #aaa
+		}
 	</style>
 </head>
 <body onload="GetMap();">
@@ -154,9 +153,8 @@
 	</div>
 	<div id='rest'>
 		<a href="about.txt">about this</a><br />
-		<a href='https://oegeo.wordpress.com/2010/12/03/bing-aerial-photos-for-openstreetmap-great-but-are-they-recent/'>blog post</a> <br />
-		<a href='http://wiki.openstreetmap.org/wiki/Talk:Bing#Age_of_images'>report an error</a> <br />
-		<span id='permalink'>permalink</span> <br />
+		<a href='http://wiki.openstreetmap.org/wiki/Talk:Bing#Coverage'>report an error</a> <br />
+		<span id='permalink'>permalink</span><br />
 		current zoom: <span id=curzoom></span> 
 		<div class=box>
 			<input id="placeInput" size=13 type="text" onClick=select() onkeydown="if (event.keyCode == 13) findName()" value="Portland" /><br />
@@ -165,14 +163,16 @@
 		<div class=box>
 			<div id="slider"></div>analysis lyr opacity
 		</div>
+		<div class=box>
+			resolution: low <img src="img/low.png"/><br/>
+			high (14+) <img src="img/high.png"/><br/>
+			very high (18+) <img src="img/vhigh.png"/><br/>
+			ultra high (19+) <img src="img/uhigh.png"/><br/>
+			super high (20) <img src="img/shigh.png"/><br/>
+		</div>
 		<div id='edit' class='box'>
 			edit in potlatch2
 		</div>
-	</div>
-	<div style='font:10px helvetica, sans-serif;text-align:center;border:1px solid black;background-color:#fff;position:absolute;bottom:35px;right:10px;opacity:0.6;'>
-		A<br />
-		<img src="veryfurry4_60.png" height='33' width='60' alt=''><br />
-		thing
 	</div>
 </body>
 </html>
