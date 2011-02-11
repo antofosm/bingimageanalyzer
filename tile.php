@@ -79,20 +79,14 @@ else print($url);
 
 //get hires tiles
 $imt = get_hires($t);
+
 if($imt == false) {
 	$imt = imagecreatefrompng($hires_fn);
     imagealphablending($imt, true);
     imagesavealpha($imt, true);
 }
-
-if($imt != false) {
-	imagepng($imt);
-	imagedestroy($imt);
-}
-else {
-	imagepng($im);
-	imagedestroy($im);
-}
+imagepng($imt);
+imagedestroy($imt);
 
 /*
  * get_hires()
