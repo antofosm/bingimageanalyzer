@@ -201,6 +201,7 @@ function get_hires($t) {
                             
                             if($colorsrc != $color &&
                             	$colorsrc != $black &&
+                            	!($colorsrc == $green && $color == $red) &&
                             	!($colorsrc == $green && $color == $cyan) &&
                                 !($colorsrc == $green && $color == $blueishcyan) &&
                                 !($colorsrc == $green && $color == $blue) &&
