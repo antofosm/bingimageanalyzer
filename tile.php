@@ -100,36 +100,25 @@ function get_hires($t) {
     $hires_fn = preg_replace('/(\d)/', '/\1', $t);
 	$hires_dir = substr(($tilecache_basedir_hires . $hires_fn),0,-2);
     $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
+    $hires_exists = file_exists($hires_fn);
     
     $dir = substr($hires_fn, 0, -4);    //this is the directory that contains
                                         //the tiles of the next zoomlevel
+    $dir_exists = file_exists($dir);
+    
     $z = strlen($t);
     
-    //prepare image file
-    $im = imagecreatetruecolor(256, 256);
-    imagealphablending($im, false);
-    $black = imagecolorallocatealpha($im, 0, 0, 0, 127);
-	$red = imagecolorallocatealpha($im, 255, 0, 0, 0);				//f00
-	$green = imagecolorallocatealpha($im, 0, 255, 0, 0);			//0f0
-	$cyan = imagecolorallocatealpha($im, 0, 204, 153, 0);			//0c9
-	$blueishcyan = imagecolorallocatealpha($im, 0, 153, 204, 0);	//09c
-	$blue = imagecolorallocatealpha($im, 0, 102, 255, 0);			//06f
-    imagefill($im, 0, 0, $black);
-    imagesavealpha($im, true);
-    
 	$lastvisited_fn = $hires_fn . ".log";
+	$lastvisited_exists = file_exists($lastvisited_fn);
 	$uptodate = false;
 	
 	//check if file is up to date
-	if(file_exists($hires_fn) && !$force) {
-		if (file_exists($lastvisited_fn)) {
+	if($hires_exists && !$force) {
+		if ($lastvisited_exists) {
 			$lastvisited = file_get_contents($lastvisited_fn);
 			if(filemtime($hires_fn) > (int)$lastvisited) {
 				$uptodate = true;
 			}
-		}
-		else {
-		    $uptodate = true;
 		}
     }
     //return false if the tile is up to date (only in first iteration)
@@ -137,34 +126,47 @@ function get_hires($t) {
 	    //error_log("not updating ".$t);
 	    return false;
 	}
+	
+	//error_log("updating ".$t);
     
+	//prepare image file
+	$im = imagecreatetruecolor(256, 256);
+	imagealphablending($im, false);
+	$black = imagecolorallocatealpha($im, 0, 0, 0, 127);
+	$red = imagecolorallocatealpha($im, 255, 0, 0, 0);				//f00
+	$green = imagecolorallocatealpha($im, 0, 255, 0, 0);			//0f0
+	$cyan = imagecolorallocatealpha($im, 0, 204, 153, 0);			//0c9
+	$blueishcyan = imagecolorallocatealpha($im, 0, 153, 204, 0);	//09c
+	$blue = imagecolorallocatealpha($im, 0, 102, 255, 0);			//06f
+	imagefill($im, 0, 0, $black);
+	imagesavealpha($im, true);
+	
     //if the file exists, prepare for updating it
-    if(file_exists($hires_fn)) {
+    if($hires_exists) {
        	$src = imagecreatefrompng($hires_fn);
         imagecopyresampled($im, $src, 0, 0, 0, 0, 256, 256, 256, 256);
     }
-    //otherwise check availability of hires tiles
-    if(!file_exists($hires_fn) || $force) {
-    	if(!file_exists($hires_dir)) {
-    		mkdir($hires_dir, 0777, true);
-		}
-		
-		if($z == $cur_zoom && $z >= 20) {
+	elseif(!file_exists($hires_dir)) {
+		mkdir($hires_dir, 0777, true);
+	}
+    //check availability of hires tiles
+    if($z == $cur_zoom && (!$lastvisited_exists || $force)) {
+		if($z >= 20) {
 			if(check_tile_exists($t)) {
 				imagefill($im, 0, 0, $blue);
 			}
 		}
-		elseif($z == $cur_zoom && $z >= 19) {
+		elseif($z >= 19) {
 			if(check_tile_exists($t)) {
 				imagefill($im, 0, 0, $blueishcyan);
 			}
 		}
-		elseif($z == $cur_zoom && $z >= 18) {
+		elseif($z >= 18) {
 			if(check_tile_exists($t)) {
 				imagefill($im, 0, 0, $cyan);
 			}
 		}
-		elseif($z == $cur_zoom && $z >= 14 && $z < 18) {
+		elseif($z >= 14 && $z < 18) {
 			if(check_tile_exists($t)) {
 			    imagefill($im, 0, 0, $green);
 			}
@@ -172,14 +174,15 @@ function get_hires($t) {
 			    imagefill($im, 0, 0, $red);
 		    }
 		}
-		if($z == $cur_zoom && $z >= 14 && !file_exists($dir)) {
+		if($z >= 14 && !$dir_exists) {
+			//error_log("writing ".$t);
 			imagepng($im, $hires_fn);
 			mark_as_visited($t);
 		}
     }
     
     //if there are tiles in higher zoom levels, process them
-    if(file_exists($dir)) {
+    if($dir_exists) {
     	//...but only two levels deeper
     	if($z - $cur_zoom < 2) {
 			//recurse on all four subtiles
@@ -216,6 +219,7 @@ function get_hires($t) {
             }
             //write contents to file if back in first iteration
 			if($z == $cur_zoom) {
+				//error_log("writing ".$t);
 				imagepng($im, $hires_fn);
 				mark_as_visited($t);
 			}
