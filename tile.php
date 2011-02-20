@@ -78,15 +78,23 @@ if(!($d)) header("Content-type: image/png");
 else print($url);
 
 //get hires tiles
-$imt = get_hires($t);
+$im = get_hires($t);
 
-if($imt == false) {
-    $imt = imagecreatefrompng($hires_fn);
-    imagealphablending($imt, true);
-    imagesavealpha($imt, true);
+if($im == false) {
+    if(file_exists($hires_fn)) {
+        $im = imagecreatefrompng($hires_fn);
+        imagealphablending($im, true);
+    }
+    else {
+        $im = imagecreatetruecolor(256, 256);
+        imagealphablending($im, false);
+        $black = imagecolorallocatealpha($im, 0, 0, 0, 127);
+        imagefill($im, 0, 0, $black);
+    }
+    imagesavealpha($im, true);
 }
-imagepng($imt);
-imagedestroy($imt);
+imagepng($im);
+imagedestroy($im);
 
 /*
  * get_hires()
@@ -98,29 +106,28 @@ imagedestroy($imt);
 function get_hires($t) {
     global $cur_zoom, $tilecache_basedir_hires, $force;
     $hires_fn = preg_replace('/(\d)/', '/\1', $t);
-    $hires_dir = substr(($tilecache_basedir_hires . $hires_fn),0,-2);
+    $hires_dir = substr(($tilecache_basedir_hires . $hires_fn), 0, -2);
     $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
     $hires_exists = file_exists($hires_fn);
 
-    $dir = substr($hires_fn, 0, -4);    //this is the directory that contains
-                                        //the tiles of the next zoomlevel
-    $dir_exists = file_exists($dir);
+    $log_fn = $hires_fn . ".log";
+    $log_exists = file_exists($log_fn);
+    if ($log_exists) {
+        $log = explode(",", file_get_contents($log_fn));
+        //old log files had one mtime only (one number). newer ones have one for each subtile ($j).
+        $oldlog = count($log) == 1;
+    }
 
     $z = strlen($t);
-
-    $lastvisited_fn = $hires_fn . ".log";
-    $lastvisited_exists = file_exists($lastvisited_fn);
+    $mtime = 0;
     $uptodate = false;
 
     //check if file is up to date
     if($hires_exists && !$force) {
-        if ($lastvisited_exists) {
-            $lastvisited = file_get_contents($lastvisited_fn);
-            if(filemtime($hires_fn) > (int)$lastvisited) {
-                $uptodate = true;
-            }
-        }
+        $mtime = filemtime($hires_fn);
+        $uptodate = $log_exists ? $mtime > max($log) : $z < 14;
     }
+
     //return false if the tile is up to date (only in first iteration)
     if ($z == $cur_zoom && $uptodate) {
         //error_log("not updating ".$t);
@@ -133,38 +140,34 @@ function get_hires($t) {
     $im = imagecreatetruecolor(256, 256);
     imagealphablending($im, false);
     $black = imagecolorallocatealpha($im, 0, 0, 0, 127);
-    $red = imagecolorallocatealpha($im, 255, 0, 0, 0);                //f00
+    $red = imagecolorallocatealpha($im, 255, 0, 0, 0);              //f00
     $green = imagecolorallocatealpha($im, 0, 255, 0, 0);            //0f0
-    $cyan = imagecolorallocatealpha($im, 0, 204, 153, 0);            //0c9
+    $cyan = imagecolorallocatealpha($im, 0, 204, 153, 0);           //0c9
     $blueishcyan = imagecolorallocatealpha($im, 0, 153, 204, 0);    //09c
-    $blue = imagecolorallocatealpha($im, 0, 102, 255, 0);            //06f
+    $blue = imagecolorallocatealpha($im, 0, 102, 255, 0);           //06f
     imagefill($im, 0, 0, $black);
     imagesavealpha($im, true);
 
     //if the file exists, prepare for updating it
     if($hires_exists) {
-           $src = imagecreatefrompng($hires_fn);
+        $src = imagecreatefrompng($hires_fn);
         imagecopyresampled($im, $src, 0, 0, 0, 0, 256, 256, 256, 256);
     }
+    //mkdir if directory doesn't exist
     elseif(!file_exists($hires_dir)) {
         mkdir($hires_dir, 0777, true);
     }
+
     //check availability of hires tiles
-    if($z == $cur_zoom && (!$lastvisited_exists || $force)) {
-        if($z >= 20) {
-            if(check_tile_exists($t)) {
-                imagefill($im, 0, 0, $blue);
-            }
+    if($z == $cur_zoom && (!$log_exists || $force)) {
+        if($z >= 20 && check_tile_exists($t)) {
+            imagefill($im, 0, 0, $blue);
         }
-        elseif($z >= 19) {
-            if(check_tile_exists($t)) {
-                imagefill($im, 0, 0, $blueishcyan);
-            }
+        elseif($z >= 19 && check_tile_exists($t)) {
+            imagefill($im, 0, 0, $blueishcyan);
         }
-        elseif($z >= 18) {
-            if(check_tile_exists($t)) {
-                imagefill($im, 0, 0, $cyan);
-            }
+        elseif($z >= 18 && check_tile_exists($t)) {
+            imagefill($im, 0, 0, $cyan);
         }
         elseif($z >= 14 && $z < 18) {
             if(check_tile_exists($t)) {
@@ -174,55 +177,52 @@ function get_hires($t) {
                 imagefill($im, 0, 0, $red);
             }
         }
-        if($z >= 14 && !$dir_exists) {
+        if($z >= 14 && !$log_exists) {
             //error_log("writing ".$t);
             imagepng($im, $hires_fn);
             mark_as_visited($t);
         }
     }
 
-    //if there are tiles in higher zoom levels, process them
-    if($dir_exists) {
-        //...but only two levels deeper
-        if($z - $cur_zoom < 2) {
-            //recurse on all four subtiles
-            for($j = 0; $j < 4; $j++) {
+    //if there is a log file, process tiles in higher zoom levels... but only four levels deeper
+    if($log_exists && $z - $cur_zoom < ($oldlog ? 2 : 4)) {
+        //for each subtile...
+        for($j = 0; $j < 4; $j++) {
+            //...check if it has updates
+            if($oldlog ? $mtime < (int)$log[0] : $mtime < (int)$log[$j]) {
                 $imsrc = get_hires($t.$j);
 
-                //abort if get_tile() returns false
-                if($imsrc != false) {
-                    //merge higher zoom level tiles into the current one
-                    $dst_x = $j==0 || $j==2 ? 0 : 128;
-                    $dst_y = $j==0 || $j==1 ? 0 : 128;
+                //paint the tile
+                $dst_x = $j==0 || $j==2 ? 0 : 128;
+                $dst_y = $j==0 || $j==1 ? 0 : 128;
 
-                    for($x = 0; $x <= 255; $x = $x + 2) {
-                        for($y = 0; $y <= 255; $y = $y + 2) {
-                            $new_x = $dst_x + $x/2;
-                            $new_y = $dst_y + $y/2;
-                            $color = imagecolorat($im, $new_x, $new_y);
-                            $colorsrc = imagecolorat($imsrc, $x, $y);
+                for($x = 0; $x <= 255; $x = $x + 2) {
+                    for($y = 0; $y <= 255; $y = $y + 2) {
+                        $new_x = $dst_x + $x/2;
+                        $new_y = $dst_y + $y/2;
+                        $color = imagecolorat($im, $new_x, $new_y);
+                        $colorsrc = imagecolorat($imsrc, $x, $y);
 
-                            if($colorsrc != $color &&
-                                $colorsrc != $black &&
-                                !($colorsrc == $green && $color == $red) &&
-                                !($colorsrc == $green && $color == $cyan) &&
-                                !($colorsrc == $green && $color == $blueishcyan) &&
-                                !($colorsrc == $green && $color == $blue) &&
-                                !($colorsrc == $cyan && $color == $blueishcyan) &&
-                                !($colorsrc == $cyan && $color == $blue) &&
-                                !($colorsrc == $blueishcyan && $color == $blue)) {
-                                imagesetpixel($im, $new_x, $new_y, $colorsrc);
-                            }
+                        if($colorsrc != $color &&
+                            $colorsrc != $black &&
+                            !($colorsrc == $green && $color == $red) &&
+                            !($colorsrc == $green && $color == $cyan) &&
+                            !($colorsrc == $green && $color == $blueishcyan) &&
+                            !($colorsrc == $green && $color == $blue) &&
+                            !($colorsrc == $cyan && $color == $blueishcyan) &&
+                            !($colorsrc == $cyan && $color == $blue) &&
+                            !($colorsrc == $blueishcyan && $color == $blue)) {
+                            imagesetpixel($im, $new_x, $new_y, $colorsrc);
                         }
                     }
                 }
             }
-            //write contents to file if back in first iteration
-            if($z == $cur_zoom) {
-                //error_log("writing ".$t);
-                imagepng($im, $hires_fn);
-                mark_as_visited($t);
-            }
+        }
+        //write contents to file if back in first iteration
+        if($z == $cur_zoom) {
+            //error_log("writing ".$t);
+            imagepng($im, $hires_fn);
+            mark_as_visited($t);
         }
     }
     return $im;
@@ -230,9 +230,10 @@ function get_hires($t) {
 
 /*
  * mark_as_visited()
- * write last modification date of tiles and subtiles to file
+ * Write log files for parent tiles. Every log file contains a comma-separated list 
+ * of four numeric values that represent the modification times for each subtile.
  *
- * params:  $t      quadkey of the tile concerned
+ * params:  $t      quadkey of the modified tile
  */
 function mark_as_visited($t) {
     global $tilecache_basedir_hires;
@@ -240,16 +241,33 @@ function mark_as_visited($t) {
     $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
     $mtime = filemtime($hires_fn);
 
-    //step up to parent folder two times and write log files
-    for($i = 0; $i < 2; $i++) {
+    //step up to parent folder to write log files four times
+    for($i = 0; $i < 4; $i++) {
+        $q = substr($t, -1);
         $t = substr($t, 0, -1);
         if(strlen($t) > 1) {
             $parent_hires_fn = preg_replace('/(\d)/', '/\1', $t);
             $parent_hires_fn = $tilecache_basedir_hires . $parent_hires_fn . '.png';
             $log_fn = $parent_hires_fn . ".log";
+            $log = array("", "", "", "");
+            if(file_exists($log_fn)) {
+                $log = explode(",", file_get_contents($log_fn));
+                //old log files had one mtime only (one number). newer ones have one for each subtile ($j).
+                $oldlog = count($log) == 1;
+                if($oldlog) {
+                    $log[1] = $log[2] = $log[3] = $log[0];
+                }
+            }
 
             $fh = fopen($log_fn, 'w') or die("can't open file for writing");
-            fwrite($fh, $mtime);
+            for($j = 0; $j < 4; $j++) {
+                if($j == $q && !$oldlog) {
+                    fwrite($fh, $mtime . ",");
+                }
+                else {
+                    fwrite($fh, $log[$j] . ",");
+                }
+            }
             fclose($fh);
         }
         else break;

@@ -19,6 +19,7 @@ overlay tiles when they are generated.
 history:
 0.1-20110121	forked from https://github.com/mvexel/bingimageanalyzer, 
 				hires tile drawing
+0.2-20110220	algorithm optimization
 ===========================================================================
 Copyright (c) 2010 Very Furry / Martijn van Exel / ant
 
