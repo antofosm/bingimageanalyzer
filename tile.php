@@ -43,7 +43,7 @@ $TC_BASE = '/home/ant/public_html/bingimageanalyzer-cache/';
 $LOG_LOCAL = 'php_errors.log';
 
 // From here on, no need for user configuration
-$DEBUGGING=FALSE;
+$DEBUGGING = false;
 
 error_reporting(E_ALL ^ E_NOTICE);
 if(strlen($LOG_LOCAL) > 0) ini_set("error_log", "php_errors.log");
@@ -65,11 +65,12 @@ $MaxLatitude = 85.05112878;
 $MinLongitude = -180;
 $MaxLongitude = 180;
 
-if (isset($_GET['debug'])) {
-    $DEBUGGING=true;
-}
-
 $tilecache_basedir_hires = $TC_BASE . 'hires';
+
+if (isset($_GET['debug'])) {
+    $DEBUGGING = true;
+    debug();
+}
 
 $hires_fn = preg_replace('/(\d)/', '/\1', $t);
 $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
@@ -104,14 +105,16 @@ imagedestroy($im);
  * returns: image resource on success, false if file doesn't need updating
  */
 function get_hires($t) {
-    global $cur_zoom, $tilecache_basedir_hires, $force;
+    global $DEBUGGING, $cur_zoom, $tilecache_basedir_hires, $force;
     $hires_fn = preg_replace('/(\d)/', '/\1', $t);
     $hires_dir = substr(($tilecache_basedir_hires . $hires_fn), 0, -2);
     $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
     $hires_exists = file_exists($hires_fn);
 
+    $log = array("");
     $log_fn = $hires_fn . ".log";
     $log_exists = file_exists($log_fn);
+
     if ($log_exists) {
         $log = explode(",", file_get_contents($log_fn));
         //old log files had one mtime only (one number). newer ones have one for each subtile ($j).
@@ -122,10 +125,22 @@ function get_hires($t) {
     $mtime = 0;
     $uptodate = false;
 
+    if($DEBUGGING) {
+        $indent = "";
+        for($i = $cur_zoom; $i < $z; $i++) $indent .= "  ";
+        print($indent."processing tile ".$t." in zoom ".$z."\n");
+    }
+
     //check if file is up to date
     if($hires_exists && !$force) {
         $mtime = filemtime($hires_fn);
         $uptodate = $log_exists ? $mtime > max($log) : $z < 14;
+    }
+
+    if($DEBUGGING) {
+        print($indent.($hires_exists ? "file exists, mtime ".$mtime."\n" : "file does not exist\n"));
+        print($indent.($log_exists ? "log file: ".file_get_contents($log_fn)."\n" : "log file does not exist\n"));
+        print($indent."mtime ".($mtime > max($log) ? "greater" : "less"). " than max. logged time; ".($uptodate ? "aborting\n" : "\n"));
     }
 
     //return false if the tile is up to date (only in first iteration)
@@ -179,6 +194,7 @@ function get_hires($t) {
         }
         if($z >= 14 && !$log_exists) {
             //error_log("writing ".$t);
+            if($DEBUGGING) print($indent."saving (hires)\n");
             imagepng($im, $hires_fn);
             mark_as_visited($t);
         }
@@ -221,35 +237,48 @@ function get_hires($t) {
         //write contents to file if back in first iteration
         if($z == $cur_zoom) {
             //error_log("writing ".$t);
+            if($DEBUGGING) print($indent."saving\n");
             imagepng($im, $hires_fn);
             mark_as_visited($t);
         }
     }
+    if($DEBUGGING) print($indent."----\n");
     return $im;
 }
 
 /*
  * mark_as_visited()
- * Write log files for parent tiles. Every log file contains a comma-separated list 
+ * Write log files for parent tiles. Every log file contains a comma-separated list
  * of four numeric values that represent the modification times for each subtile.
  *
  * params:  $t      quadkey of the modified tile
  */
 function mark_as_visited($t) {
-    global $tilecache_basedir_hires;
-    $hires_fn = preg_replace('/(\d)/', '/\1', $t);
-    $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
-    $mtime = filemtime($hires_fn);
+    global $DEBUGGING, $cur_zoom, $tilecache_basedir_hires;
+
+    if($DEBUGGING) {
+        $z = strlen($t);
+        $indent = "";
+        for($i = $cur_zoom; $i < $z; $i++) $indent .= "  ";
+    }
+
+    $mtime = time();
 
     //step up to parent folder to write log files four times
     for($i = 0; $i < 4; $i++) {
         $q = substr($t, -1);
         $t = substr($t, 0, -1);
+
+        if($DEBUGGING) $indent .= "> ";
+
         if(strlen($t) > 1) {
             $parent_hires_fn = preg_replace('/(\d)/', '/\1', $t);
             $parent_hires_fn = $tilecache_basedir_hires . $parent_hires_fn . '.png';
             $log_fn = $parent_hires_fn . ".log";
             $log = array("", "", "", "");
+
+            if($DEBUGGING) print($indent."marking ".$t."\n");
+
             if(file_exists($log_fn)) {
                 $log = explode(",", file_get_contents($log_fn));
                 //old log files had one mtime only (one number). newer ones have one for each subtile ($j).
@@ -257,12 +286,15 @@ function mark_as_visited($t) {
                 if($oldlog) {
                     $log[1] = $log[2] = $log[3] = $log[0];
                 }
+
+                if($DEBUGGING) print($indent."found log: ".file_get_contents($log_fn)."\n");
             }
 
             $fh = fopen($log_fn, 'w') or die("can't open file for writing");
             for($j = 0; $j < 4; $j++) {
                 if($j == $q) {
                     fwrite($fh, $mtime . ",");
+                    if($DEBUGGING) print($indent."writing log: ".$mtime." at ".$q."\n");
                 }
                 else {
                     fwrite($fh, $log[$j] . ",");
@@ -277,7 +309,7 @@ function mark_as_visited($t) {
 function get_tile_headers($quadkey){
     global $url_base,$url_end,$DEBUGGING;
     $url = $url_base.$quadkey.$url_end;
-    if($DEBUGGING) print("\tchecking tile url: " . $url . "\n");
+    //if($DEBUGGING) print("\tchecking tile url: " . $url . "\n");
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL,            $url);
     curl_setopt($ch, CURLOPT_HEADER,         true);
@@ -285,7 +317,7 @@ function get_tile_headers($quadkey){
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT,        15);
     $headers = curl_exec($ch);
-    if($DEBUGGING) print("\theaders: " . $headers . "\n");
+    //if($DEBUGGING) print("\theaders: " . $headers . "\n");
     return $headers;
 }
 
@@ -469,4 +501,13 @@ function parse_query() {
     return $t;
 }
 
+function debug() {
+    global $t, $cur_zoom;
+    print('<html><head><title>debug tile ' . $t . '</title></head><body><pre>');
+    print('debugging tile ' . $t . "\n");
+    print('current zoom: ' . $cur_zoom . "\n\n");
+
+    get_hires($t);
+    exit();
+}
 ?>
