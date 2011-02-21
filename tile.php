@@ -261,7 +261,7 @@ function mark_as_visited($t) {
 
             $fh = fopen($log_fn, 'w') or die("can't open file for writing");
             for($j = 0; $j < 4; $j++) {
-                if($j == $q && !$oldlog) {
+                if($j == $q) {
                     fwrite($fh, $mtime . ",");
                 }
                 else {
