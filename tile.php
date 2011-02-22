@@ -174,7 +174,7 @@ function get_hires($t) {
     }
 
     //check availability of hires tiles
-    if($z == $cur_zoom && (!$log_exists || $force)) {
+    if($z == $cur_zoom) {
         if($z >= 20 && check_tile_exists($t)) {
             imagefill($im, 0, 0, $blue);
         }
@@ -201,7 +201,7 @@ function get_hires($t) {
     }
 
     //if there is a log file, process tiles in higher zoom levels... but only four levels deeper
-    if($log_exists && $z - $cur_zoom < ($oldlog ? 2 : 4)) {
+    if($log_exists && $z - $cur_zoom < 4) {
         //for each subtile...
         for($j = 0; $j < 4; $j++) {
             //...check if it has updates
@@ -259,7 +259,6 @@ function mark_as_visited($t) {
     if($DEBUGGING) {
         $z = strlen($t);
         $indent = "";
-        for($i = $cur_zoom; $i < $z; $i++) $indent .= "  ";
     }
 
     $mtime = time();
@@ -268,28 +267,35 @@ function mark_as_visited($t) {
     for($i = 0; $i < 4; $i++) {
         $q = substr($t, -1);
         $t = substr($t, 0, -1);
+        $z = strlen($t);
 
         if($DEBUGGING) $indent .= "> ";
 
-        if(strlen($t) > 1) {
-            $parent_hires_fn = preg_replace('/(\d)/', '/\1', $t);
-            $parent_hires_fn = $tilecache_basedir_hires . $parent_hires_fn . '.png';
-            $log_fn = $parent_hires_fn . ".log";
-            $log = array("", "", "", "");
+        $parent_hires_fn = preg_replace('/(\d)/', '/\1', $t);
+        $parent_hires_fn = $tilecache_basedir_hires . $parent_hires_fn . '.png';
+        $log_fn = $parent_hires_fn . ".log";
+        $log = array("", "", "", "");
 
-            if($DEBUGGING) print($indent."marking ".$t."\n");
+        if($DEBUGGING) print($indent."marking ".$t."\n");
 
-            if(file_exists($log_fn)) {
-                $log = explode(",", file_get_contents($log_fn));
-                //old log files had one mtime only (one number). newer ones have one for each subtile ($j).
-                $oldlog = count($log) == 1;
-                if($oldlog) {
-                    $log[1] = $log[2] = $log[3] = $log[0];
-                }
-
-                if($DEBUGGING) print($indent."found log: ".file_get_contents($log_fn)."\n");
+        if(file_exists($log_fn)) {
+            $log = explode(",", file_get_contents($log_fn));
+            //old log files had one mtime only (one number). newer ones have one for each subtile ($j).
+            if(count($log) == 1) {
+                $log[1] = $log[2] = $log[3] = $log[0];
             }
 
+            if($DEBUGGING) print($indent."found log: ".file_get_contents($log_fn)."\n");
+        }
+
+        //old style logging in first step to minimize errors
+        if($z == $cur_zoom - 1) {
+            $fh = fopen($log_fn, 'w') or die("can't open file for writing");
+            fwrite($fh, $mtime);
+            if($DEBUGGING) print($indent."writing log: ".$mtime."\n");
+            fclose($fh);
+        }
+        elseif($z > 1) {
             $fh = fopen($log_fn, 'w') or die("can't open file for writing");
             for($j = 0; $j < 4; $j++) {
                 if($j == $q) {
