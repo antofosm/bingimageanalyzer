@@ -220,14 +220,7 @@ function get_hires($t) {
                         $colorsrc = imagecolorat($imsrc, $x, $y);
 
                         if($colorsrc != $color &&
-                            $colorsrc != $black &&
-                            !($colorsrc == $green && $color == $red) &&
-                            !($colorsrc == $green && $color == $cyan) &&
-                            !($colorsrc == $green && $color == $blueishcyan) &&
-                            !($colorsrc == $green && $color == $blue) &&
-                            !($colorsrc == $cyan && $color == $blueishcyan) &&
-                            !($colorsrc == $cyan && $color == $blue) &&
-                            !($colorsrc == $blueishcyan && $color == $blue)) {
+                            $colorsrc != $black) {
                             imagesetpixel($im, $new_x, $new_y, $colorsrc);
                         }
                     }
@@ -288,8 +281,8 @@ function mark_as_visited($t) {
             if($DEBUGGING) print($indent."found log: ".file_get_contents($log_fn)."\n");
         }
 
-        //old style logging in first step to minimize errors
-        if($z == $cur_zoom - 1) {
+        //old style logging in first two steps
+        if($z >= $cur_zoom - 2) {
             $fh = fopen($log_fn, 'w') or die("can't open file for writing");
             fwrite($fh, $mtime);
             if($DEBUGGING) print($indent."writing log: ".$mtime."\n");
