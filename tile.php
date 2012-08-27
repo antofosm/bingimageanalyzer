@@ -53,7 +53,7 @@ $t = parse_query();
 
 $s = rand(0, 7);
 $url_base = 'http://ecn.t'.$s.'.tiles.virtualearth.net/tiles/a';
-$url_end = '.jpeg?g=587&n=z';
+$url_end = '.jpeg?g=1026&n=z';
 $force = $_GET['force'] == '1';
 $cur_zoom = strlen($t);
 $nodepth = strlen($_GET['nodepth']) > 0;
