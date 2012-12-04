@@ -36,6 +36,7 @@
 
 // Your Tilecache base directory. You will need to create a "hires" directory here.
 // This directory needs to be writable by the web server.
+//$TC_BASE = '/home/ant/public_html/bingimageanalyzer-cache/';
 $TC_BASE = '/var/www/bingimageanalyzer-cache/';
 
 // Optionally, define a path to a local PHP error log file here if for some reason you don't want to use PHP's main error log file. If empty, errors will be logged using the global PHP configuration.
@@ -429,28 +430,22 @@ function TileXYToQuadKey($tileX, $tileY, $zoomLevel) {
 
 function QuadKeyToTileXY($quadKey) {
     $tileX = $tileY = 0;
-    $zoomLevel = strlen(quadKey);
-    for ($i = $zoomLevel; $i > 0; $i--) {
-        $mask = 1 << ($i - 1);
-        switch (substr($quadKey,$levelOfDetail - i,1)) {
+    $zoomLevel = strlen($quadKey);
+    for ($i = 0; $i < $zoomLevel; $i++) {
+        $factor = pow(2,$zoomLevel-$i-1);
+        switch (substr($quadKey,$i, 1)) {
             case '0':
                 break;
-
             case '1':
-                $tileX |= mask;
+                $tileX += $factor;
                 break;
-
             case '2':
-                $tileY |= mask;
+                $tileY += $factor;
                 break;
-
             case '3':
-                $tileX |= mask;
-                $tileY |= mask;
+                $tileX += $factor;
+                $tileY += $factor;
                 break;
-
-            default:
-                return false;
         }
     }
     return array('tileX' => $tileX, 'tileY' => $tileY, 'zoomLevel' => $zoomLevel);
@@ -458,28 +453,10 @@ function QuadKeyToTileXY($quadKey) {
 
     // adapted from http://social.msdn.microsoft.com/Forums/en-US/vemapcontroldev/thread/49d2e73a-b826-493b-84fd-34b0cb4d4fc3/
 function QuadKeyToLatLong($quadkey) {
-    $x=0;
-    $y=0;
-    $zoomlevel = strlen($quadkey);
-
-    //convert quadkey to tile xy coords
-    for ($i = 0; $i < $zoomlevel; $i++) {
-        $factor = pow(2,$zoomlevel-$i-1);
-        switch (charAt($quadkey,$i)) {
-            case '0':
-                break;
-            case '1':
-                $x += $factor;
-                break;
-            case '2':
-                $y += $factor;
-                break;
-            case '3':
-                $x += $factor;
-                $y += $factor;
-                break;
-        }
-    }
+    $xy = QuadKeyToTileXY($quadkey);
+    $x = $xy['tileX'];
+    $x = $xy['tileY'];
+    $zoomlevel = $xy['zoomLevel'];
 
     //convert tileXY into pixel coordinates for top left corners
     $pixelX = $x*256;
@@ -495,20 +472,19 @@ function parse_query() {
     $tms_identifier = 0;
     $req_uri = $_SERVER["REQUEST_URI"];
     $matches = preg_split("/\//",$_SERVER["REQUEST_URI"]);
+
     for($i = 0; $i < count($matches);  $i++) {
-        if($matches[$i]=="1.0.0")
+        if($matches[$i]=="tile.php")
             $tms_identifier = $i;
     }
     if($tms_identifier) {
-        $tms_zoom = (int)$matches[$tms_identifier+2];
-        $tms_x=(int)$matches[$tms_identifier+3];
-        preg_match("/\d+/",$matches[$tms_identifier+4],$tms_y_matches);
+        $tms_zoom = (int)$matches[$tms_identifier+1];
+        $tms_x=(int)$matches[$tms_identifier+2];
+        preg_match("/\d+/",$matches[$tms_identifier+3],$tms_y_matches);
         $tms_y=(int)$tms_y_matches[0];
+        
         if($tms_zoom && $tms_x && $tms_y) {
-            $n = pow(2, $tms_zoom);
-            $lon_deg = $tms_x / $n * 360.0 - 180.0;
-            $lat_deg = rad2deg(atan(sinh(pi() * (1 - 2 * $tms_y / $n))));
-            $t = TileXYToQuadKey($tms_x,$tms_y,$tms_zoom+1);
+            $t = TileXYToQuadKey($tms_x,$tms_y,$tms_zoom);
         }
     }
     if(!isset($t))
