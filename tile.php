@@ -83,24 +83,26 @@ else print($url);
 //get hires tiles
 $im = get_hires($t);
 
-if($im == false) {
-    if(file_exists($hires_fn)) {
-        $im = imagecreatefrompng($hires_fn);
-        imagealphablending($im, true);
-    }
-    else {
-        $im = imagecreatetruecolor(256, 256);
-        imagealphablending($im, false);
-        $black = imagecolorallocatealpha($im, 0, 0, 0, 127);
-        imagefill($im, 0, 0, $black);
-    }
-    imagesavealpha($im, true);
-}
 if ($returnaerial) {
-    $im = imagecreatefromstring(get_tile($t));
+    echo get_tile($t);
 }
-imagepng($im);
-imagedestroy($im);
+else {
+    if ($im == false) {
+        if (file_exists($hires_fn)) {
+            $im = imagecreatefrompng($hires_fn);
+            imagealphablending($im, true);
+        }
+        else {
+            $im = imagecreatetruecolor(256, 256);
+            imagealphablending($im, false);
+            $black = imagecolorallocatealpha($im, 0, 0, 0, 127);
+            imagefill($im, 0, 0, $black);
+        }
+        imagesavealpha($im, true);
+    }
+    imagepng($im);
+    imagedestroy($im);
+}
 
 /*
  * get_hires()
