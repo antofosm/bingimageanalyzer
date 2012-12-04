@@ -39,7 +39,10 @@
 		if(isNaN(z)) z = parseInt(getParameterByName("zoom")); 
 		if(isNaN(z)) z = 8;
 		var force = getParameterByName("force");
-		var tileSourceUri = baseURL + 'tile.php?t={quadkey}&force=' + force;
+		var tileSourceUri = baseURL + 'tile.php?t={quadkey}';
+		if (force != "") {
+		    tileSourceUri = tileSourceUri + '&force=' + force;
+		}
 		
 		map = new Microsoft.Maps.Map(document.getElementById("mapDiv"), 
 			{

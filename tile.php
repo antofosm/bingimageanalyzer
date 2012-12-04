@@ -53,10 +53,11 @@ $t = parse_query();
 
 $s = rand(0, 7);
 $url_base = 'http://ecn.t'.$s.'.tiles.virtualearth.net/tiles/a';
-$url_end = '.jpeg?g=1026&n=z';
-$force = $_GET['force'] == '1';
+$url_end = '.jpeg?g=1135&n=z';
 $cur_zoom = strlen($t);
-$nodepth = strlen($_GET['nodepth']) > 0;
+
+$force = isset($_GET['force']) ? ($_GET['force'] == 1) : false;
+$returnaerial = isset($_GET['returnaerial']) ? ($_GET['returnaerial'] == 1) : false;
 
 // VE CONSTANTS
 $EarthRadius = 6378137;
@@ -93,6 +94,9 @@ if($im == false) {
         imagefill($im, 0, 0, $black);
     }
     imagesavealpha($im, true);
+}
+if ($returnaerial) {
+    $im = imagecreatefromstring(get_tile($t));
 }
 imagepng($im);
 imagedestroy($im);
@@ -305,7 +309,19 @@ function mark_as_visited($t) {
     }
 }
 
-function get_tile_headers($quadkey){
+function get_tile($quadkey) {
+    global $url_base,$url_end,$DEBUGGING;
+    $url = $url_base.$quadkey.$url_end;
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL,            $url);
+    curl_setopt($ch, CURLOPT_HEADER,         false);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_BINARYTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT,        15);
+    return curl_exec($ch);
+}
+
+function get_tile_headers($quadkey) {
     global $url_base,$url_end,$DEBUGGING;
     $url = $url_base.$quadkey.$url_end;
     //if($DEBUGGING) print("\tchecking tile url: " . $url . "\n");
