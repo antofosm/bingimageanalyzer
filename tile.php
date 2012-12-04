@@ -80,13 +80,14 @@ $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
 if(!($d)) header("Content-type: image/png");
 else print($url);
 
-//get hires tiles
-$im = get_hires($t);
-
 if ($returnaerial) {
     echo get_tile($t);
 }
-else {
+
+//get hires tiles
+$im = get_hires($t);
+
+if (!$returnaerial) {
     if ($im == false) {
         if (file_exists($hires_fn)) {
             $im = imagecreatefrompng($hires_fn);
