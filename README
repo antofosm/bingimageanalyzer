@@ -8,20 +8,18 @@ tiles contain hires imagery and paints them green if they do and red if they
 do not. This is visualized in a mosaic kind of way when you zoom out to lower 
 zoom levels.
 
-There is probably some violation of the Bing terms of use, as I call the http
-headers for the tiles directly, bypassing the Bing API. I see no real way around
-this, but if this site stops working all of a sudden, you know why. As of 
-version 0.8, the load on the server is reduced somewhat by disk-caching the 
-overlay tiles when they are generated. 
+Thanks to Pavel Shramov[2] for providing Bing/Leafpad integration.
 
 [1] http://mvexel.dev.openstreetmap.org/bing/
+[2] https://github.com/shramov
 ===========================================================================
 history:
 0.1-20110121	forked from https://github.com/mvexel/bingimageanalyzer, 
 				hires tile drawing
 0.2-20110220	algorithm optimization
+0.3-20130406    switch to Leafpad
 ===========================================================================
-Copyright (c) 2010 Very Furry / Martijn van Exel / ant
+Copyright (c) 2013 Very Furry / Martijn van Exel / ant
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -40,17 +38,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
-Installation
-===========================================================================
-1. Edit index.html. Change the values for bingCredentials and baseURL. If
-You don't have a Bing Maps API key, get one through 
-http://msdn.microsoft.com/en-us/library/ff428642.aspx
-2. Edit tile.php. Change thhe value for $TC_BASE to a web-accessible
-directory. Optionally, enable logging to a specific file by setting 
-$LOCAL_LOG 
-3. Create directory 'hires' in the directory you provided in $TC_BASE, 
-and make them writable for the webserver.
-4. Go to [baseURL]/bingimageanalyzer - should work now!
-
-
