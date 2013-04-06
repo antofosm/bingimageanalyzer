@@ -1,111 +1,146 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html>
 <html>
 <head>
 	<title>Bing Aerial Imagery Analyzer for OpenStreetMap</title>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-	<link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/themes/base/jquery-ui.css" rel="stylesheet" type="text/css"/>
-	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"></script>
-	<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"></script>
-	<script type="text/javascript" src="http://ecn.dev.virtualearth.net/mapcontrol/mapcontrol.ashx?v=7.0"></script> 
+	<link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.1/themes/base/jquery-ui.css" rel="stylesheet" type="text/css"/>
+	<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5.1/leaflet.css" />
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.1/jquery-ui.min.js"></script>
+	<script src="http://cdn.leafletjs.com/leaflet-0.5.1/leaflet.js"></script>
+	<script src="js/Bing.js"></script>
 	<script type="text/javascript">
-	// This is the URL at which the application (and tile.php) is accessible through the internet. 
-	//var baseURL = 'http://ant.dev.openstreetmap.org/bingimageanalyzer/';
-	var baseURL = 'http://localhost/bingimageanalyzer/';
-	// This is your Bing Maps key. Get your own: http://msdn.microsoft.com/en-us/library/ff428642.aspx
-	// For ant.dev.openstreetmap.org use only:
-	var bingCredentials = "AuMLnyuPu8t30kojQXLFxfpDJUvrg1d2vBsVZ-p07AZytezgQDQZ-ZMtuszAI-1i";
+	    // This is the URL at which the application (and tile.php) is accessible through the internet. 
+	    //var baseURL = 'http://ant.dev.openstreetmap.org/bingimageanalyzer/';
+	    var baseURL = 'http://localhost/bingimageanalyzer/';
+	    // This is your Bing Maps key. Get your own: http://msdn.microsoft.com/en-us/library/ff428642.aspx
+	    // For ant.dev.openstreetmap.org use only:
+	    var bingCredentials = "AuMLnyuPu8t30kojQXLFxfpDJUvrg1d2vBsVZ-p07AZytezgQDQZ-ZMtuszAI-1i";
 
-	// No need to change anything beyond here
-	// ==============================================================
-	var map;
-	var tilelayer;
-	// http://stackoverflow.com/questions/901115/get-querystring-values-with-jquery
-	function getParameterByName(name) {
-		name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
-		var regexS = "[\\?&]"+name+"=([^&#]*)";
-		var regex = new RegExp( regexS );
-		var results = regex.exec( window.location.href );
-		if( results == null )
-			return "";
-		else
-			return decodeURIComponent(results[1].replace(/\+/g, " "));
-	}
-    function GetMap() {   
-		var lat = parseFloat(getParameterByName("lat"));
-		if(isNaN(lat)) lat = 52.35;
-		var lon = parseFloat(getParameterByName("lon"));
-		if(isNaN(lon)) lon = 4.9;
-		var z = parseInt(getParameterByName("z"));
-		if(isNaN(z)) z = parseInt(getParameterByName("zoom")); 
-		if(isNaN(z)) z = 8;
-		var force = getParameterByName("force");
-		var tileSourceUri = baseURL + 'tile.php?t={quadkey}';
-		if (force != "") {
-		    tileSourceUri = tileSourceUri + '&force=' + force;
-		}
-		
-		map = new Microsoft.Maps.Map(document.getElementById("mapDiv"), 
-			{
-				credentials: bingCredentials,
-                center: new Microsoft.Maps.Location(lat,lon),
-                mapTypeId: Microsoft.Maps.MapTypeId.aerial,
-                zoom: z,
-                showScalebar: false,
-                labelOverlay: Microsoft.Maps.LabelOverlay.hidden
-			}
-		);
-    	var tileSource = new Microsoft.Maps.TileSource({uriConstructor: tileSourceUri});
-    	tilelayer = new Microsoft.Maps.TileLayer({ mercator: tileSource, opacity: 0.5 });
-    	
-		map.entities.push(tilelayer);
-		map.isRotationEnabled(false);
-		Microsoft.Maps.Events.addHandler(map, 'viewchangeend', function(e) {
-			c = map.getCenter();
-			z = map.getZoom();
-      		potlatchdiv = document.getElementById('edit');
-      		if(potlatchdiv == null) return false;
-      		if(z < 15) {
-      			potlatchdiv.style.color = '#aaa';
-      			potlatchdiv.innerHTML = 'edit in potlatch2';
-			}
-			else {	
-				potlatchdiv.style.color = '#000';
-				potlatchdiv.innerHTML = '<a href="http://www.openstreetmap.org/edit?lat='+c.latitude+'&lon='+c.longitude+'&zoom='+z+'&editor=potlatch2">edit in potlatch2</a>';
-			}
-			permalinkspan = document.getElementById('permalink');
-			if(permalinkspan == null) return false;
-			permalinkspan.innerHTML = '<a href="'+baseURL+'?lat='+c.latitude+'&lon='+c.longitude+'&zoom='+z+'">permalink</a>';
-			curzoomspan=document.getElementById('curzoom');
-			if(curzoomspan!=null) curzoomspan.innerHTML = map.getZoom();
-    	});
-    }      
-	  
-	function findName(credentials) {
-		map.getCredentials(MakeGeocodeRequest);
-		document.getElementById('placeInput').select();
-	}
-
-	function MakeGeocodeRequest(credentials) {
-        var geocodeRequest = "http://dev.virtualearth.net/REST/v1/Locations/" + document.getElementById('placeInput').value + "?output=json&jsonp=GeocodeCallback&key=" + credentials;
-        CallRestService(geocodeRequest);
-    }
-
-	function CallRestService(request) {
-        var script = document.createElement("script");
-        script.setAttribute("type", "text/javascript");
-        script.setAttribute("src", request);
-        document.body.appendChild(script);
-    }
-		
-	function GeocodeCallback(result) {
-		foundName = result.resourceSets[0].resources[0].name;
-		var ppo = {text: foundName, textOffset: new Microsoft.Maps.Point(0, 20)};
-        if (result && result.resourceSets && result.resourceSets.length > 0 && result.resourceSets[0].resources && result.resourceSets[0].resources.length > 0) {
-            var bbox = result.resourceSets[0].resources[0].bbox;
-            var viewBoundaries = Microsoft.Maps.LocationRect.fromLocations(new Microsoft.Maps.Location(bbox[0], bbox[1]), new Microsoft.Maps.Location(bbox[2], bbox[3]));
-            map.setView({bounds: viewBoundaries});
+	    // No need to change anything beyond here
+	    // ==============================================================
+	    var map;
+	    var coverage;
+	
+	    // http://stackoverflow.com/questions/901115/get-querystring-values-with-jquery
+	    function getParameterByName(name) {
+		    name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
+		    var regexS = "[\\?&]"+name+"=([^&#]*)";
+		    var regex = new RegExp( regexS );
+		    var results = regex.exec( window.location.href );
+		    if (results == null) {
+			    return "";
+	        }
+		    else {
+			    return decodeURIComponent(results[1].replace(/\+/g, " "));
+		    }
+	    }
+	
+        function GetMap() {   
+		    var lat = parseFloat(getParameterByName("lat"));
+		    if (isNaN(lat)) lat = 20.0;
+		    var lon = parseFloat(getParameterByName("lon"));
+		    if (isNaN(lon)) lon = 0.0;
+		    var z = parseInt(getParameterByName("z"));
+		    if (isNaN(z)) z = parseInt(getParameterByName("zoom")); 
+		    if (isNaN(z)) z = 2;
+		    var l = getParameterByName("l");
+		    
+		    var tileSourceUri = baseURL + 'tile.php/{z}/{x}/{y}.png';
+		    var maxzoom = 20;
+		    
+		    map = new L.Map('map', {center: new L.LatLng(lat, lon), zoom: z});
+		    
+		    var bing = new L.BingLayer(bingCredentials,
+		        {
+		            minZoom: 1,
+		            maxZoom: maxzoom
+		        });
+		    var osm = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+		        {
+                    attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>',
+                    minZoom: 1,
+                    maxZoom: maxzoom
+                });
+            coverage = new L.TileLayer(tileSourceUri,
+                {
+                    minZoom: 1,
+                    maxZoom: maxzoom
+                });
+            coverage.setOpacity(0.5);
+            
+            if (l == 'osm') {
+                map.addLayer(osm);
+            }
+            else {
+                map.addLayer(bing);
+            }
+            map.addLayer(coverage);
+            map.addControl(new L.Control.Layers({"Bing Aerial":bing, 'OSM Mapnik':osm}, {"Coverage":coverage}));
+		    
+		    map.on('move baselayerchange', function(e) {
+			    c = map.getCenter();
+			    z = map.getZoom();
+          		potlatchdiv = document.getElementById('edit');
+          		if (potlatchdiv == null) {
+          		    return false;
+          		}
+          		if (z < 15) {
+          			potlatchdiv.style.color = '#aaa';
+          			potlatchdiv.innerHTML = 'edit in potlatch2';
+			    }
+			    else {	
+				    potlatchdiv.style.color = '#000';
+				    potlatchdiv.innerHTML = '<a href="http://www.openstreetmap.org/edit?lat='+c.lat+'&lon='+c.lng+'&zoom='+z+'&editor=potlatch2">edit in potlatch2</a>';
+			    }
+			    permalinkspan = document.getElementById('permalink');
+			    if (permalinkspan == null) {
+			        return false;
+			    }
+			    if (map.hasLayer(bing)) {
+			        layer = 'bing';
+			    }
+			    else {
+			        layer = 'osm';
+			    }
+			    permalinkspan.innerHTML = '<a href="'+baseURL+'?lat='+c.lat+'&lon='+c.lng+'&zoom='+z+'&l='+layer+'">permalink / refresh</a>';
+			    curzoomspan=document.getElementById('curzoom');
+			    if (curzoomspan!=null) {
+			        curzoomspan.innerHTML = map.getZoom();
+			    }
+        	});
+      		map.fire('move');
+        }      
+	    
+	    function findName() {
+		    MakeGeocodeRequest();
+	    }
+        
+	    function MakeGeocodeRequest() {
+            var geocodeRequest = "http://dev.virtualearth.net/REST/v1/Locations/" + document.getElementById('placeInput').value + "?output=json&jsonp=GeocodeCallback&key=" + bingCredentials;
+            CallRestService(geocodeRequest);
         }
-    }
+        
+	    function CallRestService(request) {
+            var script = document.createElement("script");
+            script.setAttribute("type", "text/javascript");
+            script.setAttribute("src", request);
+            document.body.appendChild(script);
+        }
+		
+	    function GeocodeCallback(result) {
+            if (result && result.resourceSets && result.resourceSets.length > 0 && result.resourceSets[0].resources && result.resourceSets[0].resources.length > 0) {
+	            foundName = result.resourceSets[0].resources[0].name;
+	            document.getElementById('placeInput').value = foundName;
+	            var ppo = {text: foundName, textOffset: new L.Point(0, 20)};
+                var bbox = result.resourceSets[0].resources[0].bbox;
+                var bounds = [[bbox[0], bbox[1]], [bbox[2], bbox[3]]];
+                map.fitBounds(bounds);
+            }
+            else {
+                document.getElementById('placeInput').value = "Not found!";
+            }
+        }
 	</script> 
 	<script>
 		$(document).ready(function() {
@@ -117,29 +152,39 @@
 			$("#slider").slider({
        			change: function(event, ui) {
 					var newopacity = $("#slider").slider("option", "value");
-					tilelayer.setOptions({opacity: newopacity});
+					coverage.setOpacity(newopacity);
 				}
 		    });
   		});
 	</script>
 	<style type="text/css">
+	    #map  {
+	        position: absolute;
+	        top: 0;
+	        left: 0;
+	        width: 100%;
+	        height: 100%;
+	    }
 		#slider {
 			margin: 5px 10px 5px 10px;
 		}
 		#placeInput {
-			width: 90%
+			width: 60%;
+		}
+		#placeBtn {
+			width: 30%;
 		}
 		#rest {
 			position: absolute;
-			top: 0px;
-			right: 0px;
-			width: 130px;
+			top: 0;
+			right: 0;
+			width: 140px;
 			padding: 4px;
 			background-color: white;
 			opacity: 0.8;
 			font: 12px arial;
 			z-index: 100;
-			text-align: right
+			text-align: right;
 		}
 		#edit {
 			font: bold 12px arial;
@@ -147,33 +192,49 @@
 		.box {
 			margin-top: 2px;
 			padding: 2px;
-			border: 1px solid #aaa
-		}
+			border: 1px solid #aaa;
+	    }
+	    .boxtext {
+	        margin-top: 2px;
+	        padding: 1px 0 1px 0;
+	    }
+	    .box img {
+	        margin-top: -1px;
+	        vertical-align: top;
+	    }
+	    .leaflet-control-layers {
+	        position: absolute;
+	        top: 0;
+	        right: 150px;
+	    }
+	    .leaflet-control-layers-expanded {
+	        min-width: 100px;
+	    }
 	</style>
 </head>
-<body onload="GetMap();">
-	<div id='mapDiv' style="position:absolute; width:100%; height:100%;top:0px;left:0px;">
+<body onload="GetMap()">
+	<div id="map">
 	</div>
-	<div id='rest'>
+	<div id="rest">
 		<a href="about.txt">about this</a><br />
-		<a href='http://wiki.openstreetmap.org/wiki/Talk:Bing#Coverage'>report an error</a> <br />
-		<span id='permalink'>permalink</span><br />
+		<a href="http://wiki.openstreetmap.org/wiki/Talk:Bing#Coverage">report an error</a> <br />
+		<span id="permalink">permalink / refresh</span><br />
 		current zoom: <span id=curzoom></span> 
-		<div class=box>
-			<input id="placeInput" size=13 type="text" onClick=select() onkeydown="if (event.keyCode == 13) findName()" value="Portland" /><br />
-			<a href="#" onClick=findName()>find</a> 
+		<div class="box">
+			<input id="placeInput" size="13" type="text" onFocus="select()" onkeydown="if (event.keyCode == 13) findName()" value="" />
+			<input id="placeBtn" type="button" onClick="findName()" value="find"/> 
 		</div>
-		<div class=box>
+		<div class="box">
 			<div id="slider"></div>analysis lyr opacity
 		</div>
-		<div class=box>
-			resolution: low <img src="img/low.png"/><br/>
-			high (14+) <img src="img/high.png"/><br/>
-			very high (18+) <img src="img/vhigh.png"/><br/>
-			ultra high (19+) <img src="img/uhigh.png"/><br/>
-			super high (20) <img src="img/shigh.png"/><br/>
+		<div class="box">
+			<div class="boxtext">resolution: low <img src="img/low.png"/></div>
+			<div class="boxtext">high (14+) <img src="img/high.png"/></div>
+			<div class="boxtext">very high (18+) <img src="img/vhigh.png"/></div>
+			<div class="boxtext">ultra high (19+) <img src="img/uhigh.png"/></div>
+			<div class="boxtext">super high (20+) <img src="img/shigh.png"/></div>
 		</div>
-		<div id='edit' class='box'>
+		<div id="edit" class="box">
 			edit in potlatch2
 		</div>
 	</div>

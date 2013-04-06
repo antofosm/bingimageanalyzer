@@ -13,7 +13,7 @@
         map.entities.push(tilelayer);
 
     ===========================================================================
-    Copyright (c) 2010 Very Furry / Martijn van Exel / ant
+    Copyright (c) 2013 Very Furry / Martijn van Exel / ant
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -46,8 +46,8 @@ $LOG_LOCAL = 'php_errors.log';
 // From here on, no need for user configuration
 $DEBUGGING = false;
 
-error_reporting(E_ALL ^ E_NOTICE);
-if(strlen($LOG_LOCAL) > 0) ini_set("error_log", "php_errors.log");
+error_reporting(E_ERROR);
+if (strlen($LOG_LOCAL) > 0) ini_set("error_log", "php_errors.log");
 
 // This checks for valid TMS type request URIs, like http://domain/1.0.0/basic/17/67321/43067.png
 $t = parse_query();
@@ -57,7 +57,6 @@ $url_base = 'http://ecn.t'.$s.'.tiles.virtualearth.net/tiles/a';
 $url_end = '.jpeg?g=1135&n=z';
 $cur_zoom = strlen($t);
 
-$force = isset($_GET['force']) ? ($_GET['force'] == 1) : false;
 $returnaerial = isset($_GET['returnaerial']) ? ($_GET['returnaerial'] == 1) : false;
 
 // VE CONSTANTS
@@ -77,8 +76,7 @@ if (isset($_GET['debug'])) {
 $hires_fn = preg_replace('/(\d)/', '/\1', $t);
 $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
 
-if(!($d)) header("Content-type: image/png");
-else print($url);
+header("Content-type: image/png");
 
 if ($returnaerial) {
     echo get_tile($t);
@@ -91,18 +89,26 @@ if (!$returnaerial) {
     if ($im == false) {
         if (file_exists($hires_fn)) {
             $im = imagecreatefrompng($hires_fn);
-            imagealphablending($im, true);
+            if ($im) {
+                imagealphablending($im, true);
+            }
         }
         else {
             $im = imagecreatetruecolor(256, 256);
             imagealphablending($im, false);
             $black = imagecolorallocatealpha($im, 0, 0, 0, 127);
-            imagefill($im, 0, 0, $black);
+            if ($im && $black) {
+                imagefill($im, 0, 0, $black);
+            }
         }
-        imagesavealpha($im, true);
+        if ($im) {
+            imagesavealpha($im, true);
+        }
     }
-    imagepng($im);
-    imagedestroy($im);
+    if ($im) {
+        imagepng($im);
+        imagedestroy($im);
+    }
 }
 
 /*
@@ -113,7 +119,7 @@ if (!$returnaerial) {
  * returns: image resource on success, false if file doesn't need updating
  */
 function get_hires($t) {
-    global $DEBUGGING, $cur_zoom, $tilecache_basedir_hires, $force;
+    global $DEBUGGING, $cur_zoom, $tilecache_basedir_hires;
     $hires_fn = preg_replace('/(\d)/', '/\1', $t);
     $hires_dir = substr(($tilecache_basedir_hires . $hires_fn), 0, -2);
     $hires_fn = $tilecache_basedir_hires . $hires_fn . '.png';
@@ -133,22 +139,24 @@ function get_hires($t) {
     $mtime = 0;
     $uptodate = false;
 
-    if($DEBUGGING) {
+    if ($DEBUGGING) {
         $indent = "";
-        for($i = $cur_zoom; $i < $z; $i++) $indent .= "  ";
-        print($indent."processing tile ".$t." in zoom ".$z."\n");
+        for ($i = $cur_zoom; $i < $z; $i++) {
+            $indent .= "  ";
+        }
+        print $indent."processing tile ".$t." in zoom ".$z."\n";
     }
 
     //check if file is up to date
-    if($hires_exists && !$force) {
+    if ($hires_exists) {
         $mtime = filemtime($hires_fn);
         $uptodate = $log_exists ? $mtime > max($log) : $z < 14;
     }
 
-    if($DEBUGGING) {
-        print($indent.($hires_exists ? "file exists, mtime ".$mtime."\n" : "file does not exist\n"));
-        print($indent.($log_exists ? "log file: ".file_get_contents($log_fn)."\n" : "log file does not exist\n"));
-        print($indent."mtime ".($mtime > max($log) ? "greater" : "less"). " than max. logged time; ".($uptodate ? "aborting\n" : "\n"));
+    if ($DEBUGGING) {
+        print $indent.($hires_exists ? "file exists, mtime ".$mtime."\n" : "file does not exist\n");
+        print $indent.($log_exists ? "log file: ".file_get_contents($log_fn)."\n" : "log file does not exist\n");
+        print $indent."mtime ".($mtime > max($log) ? "greater" : "less"). " than max. logged time; ".($uptodate ? "aborting\n" : "\n");
     }
 
     //return false if the tile is up to date (only in first iteration)
@@ -172,62 +180,64 @@ function get_hires($t) {
     imagesavealpha($im, true);
 
     //if the file exists, prepare for updating it
-    if($hires_exists) {
+    if ($hires_exists) {
         $src = imagecreatefrompng($hires_fn);
-        imagecopyresampled($im, $src, 0, 0, 0, 0, 256, 256, 256, 256);
+        if ($src) {
+            imagecopyresampled($im, $src, 0, 0, 0, 0, 256, 256, 256, 256);
+        }
     }
     //mkdir if directory doesn't exist
-    elseif(!file_exists($hires_dir)) {
+    elseif (!file_exists($hires_dir)) {
         mkdir($hires_dir, 0777, true);
     }
 
     //check availability of hires tiles
-    if($z == $cur_zoom) {
-        if($z >= 20 && check_tile_exists($t)) {
+    if ($z == $cur_zoom) {
+        if ($z >= 20 && check_tile_exists($t)) {
             imagefill($im, 0, 0, $blue);
         }
-        elseif($z >= 19 && check_tile_exists($t)) {
+        elseif ($z >= 19 && check_tile_exists($t)) {
             imagefill($im, 0, 0, $blueishcyan);
         }
-        elseif($z >= 18 && check_tile_exists($t)) {
+        elseif ($z >= 18 && check_tile_exists($t)) {
             imagefill($im, 0, 0, $cyan);
         }
-        elseif($z >= 14 && $z < 18) {
-            if(check_tile_exists($t)) {
+        elseif ($z >= 14 && $z < 18) {
+            if (check_tile_exists($t)) {
                 imagefill($im, 0, 0, $green);
             }
             else {
                 imagefill($im, 0, 0, $red);
             }
         }
-        if($z >= 14 && !$log_exists) {
+        if ($z >= 14 && !$log_exists) {
             //error_log("writing ".$t);
-            if($DEBUGGING) print($indent."saving (hires)\n");
+            if ($DEBUGGING) print $indent."saving (hires)\n";
             imagepng($im, $hires_fn);
             mark_as_visited($t);
         }
     }
 
     //if there is a log file, process tiles in higher zoom levels... but only four levels deeper
-    if($log_exists && $z - $cur_zoom < 4) {
+    if ($log_exists && $z - $cur_zoom < 4) {
         //for each subtile...
-        for($j = 0; $j < 4; $j++) {
+        for ($j = 0; $j < 4; $j++) {
             //...check if it has updates
-            if($oldlog ? $mtime < (int)$log[0] : $mtime < (int)$log[$j]) {
+            if ($oldlog ? $mtime < (int) $log[0] : $mtime < (int) $log[$j]) {
                 $imsrc = get_hires($t.$j);
 
                 //paint the tile
                 $dst_x = $j==0 || $j==2 ? 0 : 128;
                 $dst_y = $j==0 || $j==1 ? 0 : 128;
 
-                for($x = 0; $x <= 255; $x = $x + 2) {
-                    for($y = 0; $y <= 255; $y = $y + 2) {
+                for ($x = 0; $x <= 255; $x = $x + 2) {
+                    for ($y = 0; $y <= 255; $y = $y + 2) {
                         $new_x = $dst_x + $x/2;
                         $new_y = $dst_y + $y/2;
                         $color = imagecolorat($im, $new_x, $new_y);
                         $colorsrc = imagecolorat($imsrc, $x, $y);
 
-                        if($colorsrc != $color &&
+                        if ($colorsrc != $color &&
                             $colorsrc != $black) {
                             imagesetpixel($im, $new_x, $new_y, $colorsrc);
                         }
@@ -236,14 +246,14 @@ function get_hires($t) {
             }
         }
         //write contents to file if back in first iteration
-        if($z == $cur_zoom) {
+        if ($z == $cur_zoom) {
             //error_log("writing ".$t);
-            if($DEBUGGING) print($indent."saving\n");
+            if ($DEBUGGING) print $indent."saving\n";
             imagepng($im, $hires_fn);
             mark_as_visited($t);
         }
     }
-    if($DEBUGGING) print($indent."----\n");
+    if ($DEBUGGING) print $indent."----\n";
     return $im;
 }
 
@@ -257,7 +267,7 @@ function get_hires($t) {
 function mark_as_visited($t) {
     global $DEBUGGING, $cur_zoom, $tilecache_basedir_hires;
 
-    if($DEBUGGING) {
+    if ($DEBUGGING) {
         $z = strlen($t);
         $indent = "";
     }
@@ -265,43 +275,43 @@ function mark_as_visited($t) {
     $mtime = time();
 
     //step up to parent folder to write log files four times
-    for($i = 0; $i < 4; $i++) {
+    for ($i = 0; $i < 4; $i++) {
         $q = substr($t, -1);
         $t = substr($t, 0, -1);
         $z = strlen($t);
 
-        if($DEBUGGING) $indent .= "> ";
+        if ($DEBUGGING) $indent .= "> ";
 
         $parent_hires_fn = preg_replace('/(\d)/', '/\1', $t);
         $parent_hires_fn = $tilecache_basedir_hires . $parent_hires_fn . '.png';
         $log_fn = $parent_hires_fn . ".log";
         $log = array("", "", "", "");
 
-        if($DEBUGGING) print($indent."marking ".$t."\n");
+        if ($DEBUGGING) print $indent."marking ".$t."\n";
 
-        if(file_exists($log_fn)) {
+        if (file_exists($log_fn)) {
             $log = explode(",", file_get_contents($log_fn));
             //old log files had one mtime only (one number). newer ones have one for each subtile ($j).
-            if(count($log) == 1) {
+            if (count($log) == 1) {
                 $log[1] = $log[2] = $log[3] = $log[0];
             }
 
-            if($DEBUGGING) print($indent."found log: ".file_get_contents($log_fn)."\n");
+            if ($DEBUGGING) print $indent."found log: ".file_get_contents($log_fn)."\n";
         }
 
         //old style logging in first two steps
-        if($z >= $cur_zoom - 2) {
-            $fh = fopen($log_fn, 'w') or die("can't open file for writing");
+        if ($z >= $cur_zoom - 2) {
+            $fh = fopen($log_fn, 'w') or die ("can't open file for writing");
             fwrite($fh, $mtime);
-            if($DEBUGGING) print($indent."writing log: ".$mtime."\n");
+            if ($DEBUGGING) print $indent."writing log: ".$mtime."\n";
             fclose($fh);
         }
-        elseif($z > 1) {
-            $fh = fopen($log_fn, 'w') or die("can't open file for writing");
-            for($j = 0; $j < 4; $j++) {
-                if($j == $q) {
+        elseif ($z > 1) {
+            $fh = fopen($log_fn, 'w') or die ("can't open file for writing");
+            for ($j = 0; $j < 4; $j++) {
+                if ($j == $q) {
                     fwrite($fh, $mtime . ",");
-                    if($DEBUGGING) print($indent."writing log: ".$mtime." at ".$q."\n");
+                    if ($DEBUGGING) print $indent."writing log: ".$mtime." at ".$q."\n";
                 }
                 else {
                     fwrite($fh, $log[$j] . ",");
@@ -474,24 +484,30 @@ function QuadKeyToLatLong($quadkey) {
 function parse_query() {
     $tms_identifier = 0;
     $req_uri = $_SERVER["REQUEST_URI"];
-    $matches = preg_split("/\//",$_SERVER["REQUEST_URI"]);
+    $matches = preg_split("/\//", $_SERVER["REQUEST_URI"]);
 
-    for($i = 0; $i < count($matches);  $i++) {
-        if($matches[$i]=="tile.php")
+    for ($i = 0; $i < count($matches); $i++) {
+        if ($matches[$i] == "tile.php") {
             $tms_identifier = $i;
-    }
-    if($tms_identifier) {
-        $tms_zoom = (int)$matches[$tms_identifier+1];
-        $tms_x=(int)$matches[$tms_identifier+2];
-        preg_match("/\d+/",$matches[$tms_identifier+3],$tms_y_matches);
-        $tms_y=(int)$tms_y_matches[0];
-        
-        if($tms_zoom && $tms_x && $tms_y) {
-            $t = TileXYToQuadKey($tms_x,$tms_y,$tms_zoom);
         }
     }
-    if(!isset($t))
+    if ($tms_identifier) {
+        $tms_zoom = (int) $matches[$tms_identifier+1];
+        $tms_x = (int) $matches[$tms_identifier+2];
+        preg_match("/\d+/", $matches[$tms_identifier+3], $tms_y_matches);
+        $tms_y = (int) $tms_y_matches[0];
+        
+        if (isset($tms_zoom) && isset($tms_x) && isset($tms_y)) {
+            $t = TileXYToQuadKey($tms_x, $tms_y, $tms_zoom);
+        }
+        else return false;
+    }
+    if (!isset($t)) {
         $t = $_GET['t'];
+    }
+    if ($t == "") {
+        exit;
+    }
     return $t;
 }
 
@@ -502,6 +518,6 @@ function debug() {
     print('current zoom: ' . $cur_zoom . "\n\n");
 
     get_hires($t);
-    exit();
+    exit;
 }
 ?>
